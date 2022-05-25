@@ -29,7 +29,8 @@ bool go;
 #define FRDer 0
 int ValIlumIzq = 0;
 int ValIlumDer = 0; 
-int BiasLuz =  26;
+int BiasLuz =  -7;
+bool cal = false;
 int difIlum = 0;
 // Relación de velocidades es 216 para el derecho y 255 para el izquierdo
 
@@ -64,12 +65,15 @@ void loop() {
   int velDer = 216*1/2;
   int velIzq = 255*1/2;
 
-  pared();
-  
   ValIlumIzq = analogRead(FRIzq);
   ValIlumDer = analogRead(FRDer)+BiasLuz;
-
   difIlum = ValIlumIzq - ValIlumDer;
+  distancia = getDistance();
+  DisDer = UltDer.ping_cm();
+  DisIzq = UltIzq.ping_cm();
+  
+  pared(DisIzq, DisDer, distancia,didIlum);
+  obstaculo(DisIzq, DisDer, distancia, difIlum);
   
   if (difIlum > 0) {
     velDer = velDer + abs(difIlum)*2*0.84;  // 0.84 sale de la realción de 216/255. Un paso de 255 equivale a .84 de 216
@@ -83,35 +87,33 @@ void loop() {
     }
   }
 
-  if (ValIlumIzq > 800 || ValIlumDer > 800){
+  if (ValIlumIzq > 900 || ValIlumDer > 900){
     go = false;
   }
 
-  distancia = getDistance();
-  DisDer = UltDer.ping_cm();
-  DisIzq = UltIzq.ping_cm();
   Serial.print("DisDer: ");
   Serial.print(DisDer);
   Serial.print("\tDisIzq: ");
   Serial.print(DisIzq);
   Serial.print("\tDisCen: ");
   Serial.println(distancia);
-  delay(500);
+  delay(100);
   
 
-//  Serial.print("Dif: ");
-//  Serial.print(difIlum);
-//  Serial.print("\tIzq: ");
-//  Serial.print(ValIlumIzq);
-//  Serial.print("\tVelIzq: ");
-//  Serial.print(velIzq);
-//  Serial.print("\tDer: ");
-//  Serial.print(ValIlumDer);
-//  Serial.print("\t VelDer:");
-//  Serial.println(velDer);
+  Serial.print("Dif: ");
+  Serial.print(difIlum);
+  Serial.print("\tIzq: ");
+  Serial.print(ValIlumIzq);
+  Serial.print("\tVelIzq: ");
+  Serial.print(velIzq);
+  Serial.print("\tDer: ");
+  Serial.print(ValIlumDer);
+  Serial.print("\t VelDer:");
+  Serial.println(velDer);
+  Serial.println();
   
   // signal the motor
-  if (go == true){
+  if (go == true and cal == false){
     setMotor(1,velIzq,IN1,IN2);
     setMotor(1,velDer,IN3,IN4);
   } else {
@@ -137,30 +139,85 @@ void setMotor(int dir, int pwr, int in1, int in2){
   }  
 }
 
-void pared() {
-  distancia = getDistance();
-  DisDer = UltDer.ping_cm();
-  DisIzq = UltIzq.ping_cm();
+void pared(int DisIzq, int DisDer, float distancia, int difIlum) {
+  
+}
 
-  if(distancia < 15) {
-    if(distancia > DisDer) {
-    //giro izquierda
+void obstaculo(int DisIzq, int DisDer, float distancia, int difIlum ) {
+  if(distancia < 15 && abs(DisDer - DisIzq) < 5) { // Pared de frente, detecto central y algo parecido en lso otros
+    Serial.println("Detecté pared");
+    if(difIlum > 0 ) { //giro izquierda
       setMotor(-1,255*1/2,IN1,IN2);
       setMotor(1,216*1/2,IN3,IN4);
       delay(250);
       setMotor(-1,0,IN1,IN2);
       setMotor(1,0,IN3,IN4);
     }
-    else if (distancia > DisIzq) {
-      //giro derecha
+    else if (difIlum < 0 ) { //giro derecha
       setMotor(1,255*1/2,IN1,IN2);
       setMotor(-1,216*1/2,IN3,IN4);
       delay(250);
       setMotor(-1,0,IN1,IN2);
       setMotor(1,0,IN3,IN4);
     }
+  } else if (distancia < 15 && (abs(DisDer - DisIzq) > 5 || DisDer == 0 || DisIzq == 0)) { // Pared de frente, detecto ladeado 
+    if(distancia > DisDer ) { //giro izquierda
+      setMotor(-1,255*1/2,IN1,IN2);
+      setMotor(1,216*1/2,IN3,IN4);
+      delay(250);
+      setMotor(-1,0,IN1,IN2);
+      setMotor(1,0,IN3,IN4);
+    }
+    else if (distancia > DisIzq ) { //giro derecha
+      setMotor(1,255*1/2,IN1,IN2);
+      setMotor(-1,216*1/2,IN3,IN4);
+      delay(250);
+      setMotor(-1,0,IN1,IN2);
+      setMotor(1,0,IN3,IN4);
+    }
+  } else if (distancia < 15 && (DisDer > 15 || DisDer == 0) && (DisIzq > 15 || DisIzq == 0)) { // Obstáculo de frente
+    if (difIlum > 0) { //Detecto mas en el lado izquierdo
+      Serial.println("Frente");
+      setMotor(-1,255*1/2,IN1,IN2); //Gira izquierda
+      setMotor(1,216*1/2,IN3,IN4);
+      delay(100);
+      setMotor(1,255*1/2,IN1,IN2); //Avanza derecho
+      setMotor(1,216*1/2,IN3,IN4);
+      delay(800);
+      setMotor(1,255*1/2,IN1,IN2); // Desgira izquierda
+      setMotor(-1,216*1/2,IN3,IN4);aaaa
+      delay(200);
+      setMotor(1,0,IN1,IN2); // Quieto
+      setMotor(1,0,IN3,IN4);
+    
+    } else if (difIlum <0) {
+      setMotor(1,255*1/2,IN1,IN2); //Gira derecha
+      setMotor(-1,216*1/2,IN3,IN4);
+      delay(100);
+      setMotor(1,255*1/2,IN1,IN2); //Avanza derecho
+      setMotor(1,216*1/2,IN3,IN4);
+      delay(800);
+      setMotor(-1,255*1/2,IN1,IN2); // Desgira derecha
+      setMotor(1,216*1/2,IN3,IN4);
+      delay(200);
+      setMotor(1,0,IN1,IN2); // Quieto
+      setMotor(1,0,IN3,IN4);
+    }
+  } else if (distancia > 15 && DisDer < 15 && DisDer != 0 ){ //Obstáculo de lado derecho
+      Serial.println("Derecha");
+      setMotor(-1,255*1/2,IN1,IN2); //Gira izquierda
+      setMotor(1,216*1/2,IN3,IN4);
+      delay(100);
+      setMotor(1,0,IN1,IN2); // Quieto
+      setMotor(1,0,IN3,IN4);
+  } else if (distancia > 15 && DisIzq < 15 && DisIzq != 0){  //Obstáculo de lado izquierdo
+      Serial.println("Izquierda");
+      setMotor(1,255*1/2,IN1,IN2); //Gira derecha
+      setMotor(-1,216*1/2,IN3,IN4);
+      delay(100);
+      setMotor(1,0,IN1,IN2); // Quieto
+      setMotor(1,0,IN3,IN4);
   }
-
 }
 
 float getDistance() {
